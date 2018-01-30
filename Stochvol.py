@@ -17,8 +17,10 @@ class Stochvol:
         sigma   : vol shape (timeslice, numpaths)
         paths : Weiner process paths shape (timeslice,numpaths)
         time : total time covered by N time steps
+        rdom : set of rates (df = 1/(1+rT) same dim as paths 
+        rfor : set of for rates same dim as paths
     """
-    def __init__(self, spot, sigma, paths, time):
+    def __init__(self, spot, sigma, paths, time, rdom = None, rfor = None):
         self.sigma = sigma
         self.numpaths = paths.shape[1]
         self.timeslices = paths.shape[0]
@@ -26,12 +28,18 @@ class Stochvol:
         self.time = time        
         R = np.zeros([self.timeslices + 1, self.numpaths])
         t = self.time / self.timeslices
+        if rdom is None:
+            rdom = np.ones((self.timeslices, self.numpaths)) * 0.05 
+            rfor = np.ones((self.timeslices, self.numpaths)) * 0.05 
+        
+        dffor = 1.0/(1+rfor*t)
+        dfdom = 1.0/(1+rdom*t)
         R[0, :] = spot
         for i in range(1,self.timeslices + 1):
             for j in range(0, self.numpaths):
                 vol = np.maximum(0,sigma[i-1, j] )
-                R[i, j] = (R[i-1, j]*math.exp(-0.5*vol*vol*t
-                    + paths[i-1,j] * vol * math.sqrt(t)))         
+                R[i, j] = (R[i-1, j]*dffor[i-1,j]/dfdom[i-1,j]
+                    * math.exp(-0.5*vol*vol*t + paths[i-1,j] * vol * math.sqrt(t)))         
         self.paths = R
     
     def optprice(self,strike, callput):
@@ -41,10 +49,10 @@ class Stochvol:
 def main():
     
     np.random.seed(100910)
-    numpaths = 300000 
-    N = 15
+    numpaths = 100000 
+    N = 10
     rho = 0
-    T = 1
+    T = 5
     paths = corpath.getpaths(np.array([[1, rho], [rho, 1]]), numpaths, N)
     meanrev = np.ones([N])*0.01
     vvol = np.ones([N])*0.2
@@ -53,7 +61,10 @@ def main():
     vol = volprocess.Logoruhl(basevol, meanrev, vvol, paths[0], T)
     spot = 3.75
     sigma = vol.paths
-    asset = Stochvol(spot, sigma, paths[1], T)
+    rdom = np.ones((N, numpaths)) * 0.12 
+    rfor = np.ones((N, numpaths)) * 0.02 
+    fwd = spot * math.pow(1+0.12*T/N,N)/math.pow(1+0.02*T/N,N)
+    asset = Stochvol(spot, sigma, paths[1], T, rdom, rfor) 
     #plot 10 random sample paths    
     R = asset.paths
     
@@ -65,13 +76,14 @@ def main():
     for i in range(0,50):
         plt.plot(R[:,a[i]])
     plt.show()
-    x = np.linspace(2.75,5.5,20)
-    y = [ BS.blackimply(spot,stri,T,1,asset.optprice(stri,1)) for stri in x]
+    std = fwd*basevol[0]*math.sqrt(T)
+    x = np.linspace(fwd - 2 * std, fwd + 2 * std,20)
+    y = [ BS.blackimply(fwd,stri,T,1,asset.optprice(stri,1)) for stri in x]
     plt.plot(x,y)
     plt.show()
-    print(BS.blackimply(spot,3.75, T, 1,(asset.optprice(3.75,1))))
-    print(BS.blackimply(spot,4.5, T, 1,(asset.optprice(4.5,1))))
-    print(BS.blackimply(spot,3.25, T, -1,(asset.optprice(3.25,-1))))
+    print(BS.blackimply(fwd, fwd +std, T, 1,(asset.optprice(fwd+std,1))))
+    print(BS.blackimply(fwd, fwd, T, 1,(asset.optprice(fwd,1))))
+    print(BS.blackimply(fwd, fwd - std, T, -1,(asset.optprice(fwd-std,-1))))
     return asset, vol
     
 
