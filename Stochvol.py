@@ -6,9 +6,8 @@ import numpy as np
 import numpy.random
 import matplotlib.pyplot as plt
 import deriv.Correlatedpaths as corpath
-import deriv.Oruhl as volprocessN
+import deriv.Oruhl as irprocess
 import deriv.Logoruhl as volprocess
-
 import BS
  
 class Stochvol:
@@ -39,7 +38,11 @@ class Stochvol:
             for j in range(0, self.numpaths):
                 vol = np.maximum(0,sigma[i-1, j] )
                 R[i, j] = (R[i-1, j]*dffor[i-1,j]/dfdom[i-1,j]
-                    * math.exp(-0.5*vol*vol*t + paths[i-1,j] * vol * math.sqrt(t)))         
+                    * math.exp(-0.5*vol*vol*t + paths[i-1,j] * vol * math.sqrt(t)))
+            # do drift adjustment
+            driftadj = (np.mean(R[i])/np.mean(R[i-1])*
+                    (1+t*np.mean(rfor[i-1]))/(1+t*np.mean(rdom[i-1])))
+            R[i] = R[i]/driftadj        
         self.paths = R
     
     def optprice(self,strike, callput):
@@ -50,25 +53,60 @@ def main():
     
     np.random.seed(100910)
     numpaths = 100000 
-    N = 10
-    rho = 0
-    T = 5
-    paths = corpath.getpaths(np.array([[1, rho], [rho, 1]]), numpaths, N)
+    N = 20
+    rho = 0.75
+    T = 10.0
+    t = T/N
+
+    # 0 :fx, 1:fxvol, 2:dom, 3:for 
+    rho01 = 0
+    rho02 = 0
+    rho03 = 0
+    rho12 = 0
+    rho13 = 0
+    rho23 = 0
+
+    cov = np.array([[1, rho01, rho02, rho03],
+                    [rho01, 1, rho12, rho13],
+                    [rho02, rho12, 1, rho23],
+                    [rho03, rho13, rho23, 1]])
+                     
+    
+    paths = corpath.getpaths(cov, numpaths, N)
+    
+    #dom
+    domts = np.ones(N+1) * 0.12 
     meanrev = np.ones([N])*0.01
-    vvol = np.ones([N])*0.2
+    sigma = np.ones([N])*0.02
+    rdom = irprocess.OrUhl(domts,meanrev, sigma, paths[0], T)    
+
+    #for
+    forts = np.ones(N+1) * 0.02 
+    meanrev = np.ones([N])*0.01
+    sigma = np.ones([N])*0.007
+    rfor = irprocess.OrUhl(forts,meanrev, sigma, paths[0], T)    
+
+
     #Stoch vol process
+    meanrev = np.ones([N])*0.01
+    vvol = np.ones([N])*0.3
     basevol = np.ones([N+1])*0.1
-    vol = volprocess.Logoruhl(basevol, meanrev, vvol, paths[0], T)
+    vol = volprocess.Logoruhl(basevol, meanrev, vvol, paths[1], T)
     spot = 3.75
     sigma = vol.paths
-    rdom = np.ones((N, numpaths)) * 0.12 
-    rfor = np.ones((N, numpaths)) * 0.02 
-    fwd = spot * math.pow(1+0.12*T/N,N)/math.pow(1+0.02*T/N,N)
-    asset = Stochvol(spot, sigma, paths[1], T, rdom, rfor) 
+    asset = Stochvol(spot, sigma, paths[0], T, rdom.paths, rfor.paths)
     #plot 10 random sample paths    
     R = asset.paths
     
     a=np.random.permutation(R.shape[1])
+    for i in range(0,50):
+        plt.plot(rdom.paths[:,a[i]])
+    plt.show()
+
+    for i in range(0,50):
+        plt.plot(rfor.paths[:,a[i]])
+    plt.show()
+
     for i in range(0,50):
         plt.plot(vol.paths[:,a[i]])
     plt.show()
@@ -76,7 +114,25 @@ def main():
     for i in range(0,50):
         plt.plot(R[:,a[i]])
     plt.show()
-    std = fwd*basevol[0]*math.sqrt(T)
+
+    fxfwds = np.ones([N+1])*spot    
+    fxfwdspaths = np.ones([N+1])*spot    
+    fxvolpaths = np.ones([N+1])*basevol[0]    
+    
+    for i in range(1,N+1):
+        fxfwds[i] = fxfwds[i-1]*(1+t*np.mean(rdom.paths[i-1]))/(1+t*np.mean(rfor.paths[i-1]))
+        fxfwdspaths[i] = np.mean(R[i])
+        fxvolpaths[i] = np.std(np.log(R[i]))/math.sqrt(t*i)
+    
+    plt.plot(fxfwds)
+    plt.plot(fxfwdspaths)
+    plt.show()
+
+    plt.plot(fxvolpaths)
+    plt.show()
+
+    fwd = fxfwds[-1]
+    std = fxvolpaths[-1]
     x = np.linspace(fwd - 2 * std, fwd + 2 * std,20)
     y = [ BS.blackimply(fwd,stri,T,1,asset.optprice(stri,1)) for stri in x]
     plt.plot(x,y)
