@@ -59,8 +59,8 @@ def main():
     t = T/N
 
     # 0 :fx, 1:fxvol, 2:dom, 3:for 
-    rho01 = 0
-    rho02 = 0
+    rho01 = -0.7
+    rho02 = -0.7
     rho03 = 0
     rho12 = 0
     rho13 = 0
@@ -76,20 +76,20 @@ def main():
     
     #dom
     domts = np.ones(N+1) * 0.12 
-    meanrev = np.ones([N])*0.01
+    meanrev = np.ones([N])*0.1
     sigma = np.ones([N])*0.02
-    rdom = irprocess.OrUhl(domts,meanrev, sigma, paths[0], T)    
+    rdom = irprocess.OrUhl(domts,meanrev, sigma, paths[2], T)    
 
     #for
     forts = np.ones(N+1) * 0.02 
-    meanrev = np.ones([N])*0.01
+    meanrev = np.ones([N])*0.1
     sigma = np.ones([N])*0.007
-    rfor = irprocess.OrUhl(forts,meanrev, sigma, paths[0], T)    
+    rfor = irprocess.OrUhl(forts,meanrev, sigma, paths[3], T)    
 
 
     #Stoch vol process
-    meanrev = np.ones([N])*0.01
-    vvol = np.ones([N])*0.3
+    meanrev = np.ones([N])*0.1
+    vvol = np.ones([N])*0.15
     basevol = np.ones([N+1])*0.1
     vol = volprocess.Logoruhl(basevol, meanrev, vvol, paths[1], T)
     spot = 3.75
@@ -101,18 +101,22 @@ def main():
     a=np.random.permutation(R.shape[1])
     for i in range(0,50):
         plt.plot(rdom.paths[:,a[i]])
+    plt.title("Dom Rate Process")
     plt.show()
 
     for i in range(0,50):
         plt.plot(rfor.paths[:,a[i]])
+    plt.title("For Rate Process")
     plt.show()
 
     for i in range(0,50):
         plt.plot(vol.paths[:,a[i]])
+    plt.title("Vol Process")
     plt.show()
 
     for i in range(0,50):
         plt.plot(R[:,a[i]])
+    plt.title("Fx Process")
     plt.show()
 
     fxfwds = np.ones([N+1])*spot    
@@ -126,16 +130,19 @@ def main():
     
     plt.plot(fxfwds)
     plt.plot(fxfwdspaths)
+    plt.title("Fxfwds: fwds and on paths")
     plt.show()
 
     plt.plot(fxvolpaths)
+    plt.title("Vol evolving with time")    
     plt.show()
 
     fwd = fxfwds[-1]
-    std = fxvolpaths[-1]
+    std = fxvolpaths[-1] * fwd
     x = np.linspace(fwd - 2 * std, fwd + 2 * std,20)
     y = [ BS.blackimply(fwd,stri,T,1,asset.optprice(stri,1)) for stri in x]
     plt.plot(x,y)
+    plt.title("Terminal Smile")
     plt.show()
     print(BS.blackimply(fwd, fwd +std, T, 1,(asset.optprice(fwd+std,1))))
     print(BS.blackimply(fwd, fwd, T, 1,(asset.optprice(fwd,1))))
