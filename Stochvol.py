@@ -59,12 +59,12 @@ def main():
     t = T/N
 
     # 0 :fx, 1:fxvol, 2:dom, 3:for 
-    rho01 = -0.7
+    rho01 = +0.2
     rho02 = -0.7
-    rho03 = 0
+    rho03 = 0.2
     rho12 = 0
     rho13 = 0
-    rho23 = 0
+    rho23 = -0.4
 
     cov = np.array([[1, rho01, rho02, rho03],
                     [rho01, 1, rho12, rho13],
@@ -77,7 +77,7 @@ def main():
     #dom
     domts = np.ones(N+1) * 0.12 
     meanrev = np.ones([N])*0.1
-    sigma = np.ones([N])*0.02
+    sigma = np.ones([N])*0.03
     rdom = irprocess.OrUhl(domts,meanrev, sigma, paths[2], T)    
 
     #for

@@ -33,6 +33,36 @@ class OrUhl:
                     + paths[i-1,j] * sigma * math.sqrt((1 - 
                     math.exp(-2*alpha*t))/(2*alpha)))           
         self.paths = R + np.reshape(initts,(self.timeslices+1,1))
+    
+    def fwdsonpath(self,i,j,k):
+        r = self.paths[i,j] *np.ones([self.N - i])
+        t = self.T / self.N
+        for p in range(i+1,self.N):
+            alpha = self.meanrev[p-1]
+            r[p-i] = initts[p-i] 
+                    + (r[p-i-1] - initts[p-i-1])*math.exp(-alpha*t)                
+        return r[:k] 
+
+def swap(R,K):
+    n = R.shape[0]
+    df = 1
+    pv = 0
+    for i in range(0,n):
+        df = df * 1/(1+R[i])
+        pv = pv + (R[i]-K)*df
+    return pv
+
+def parswap(R):
+    n = R.shape[0]
+    df = 1
+    pv = 0
+    level = 0
+    for i in range(0,n):
+        df = df * 1/(1+R[i])
+        pv = pv + (R[i])*df
+        level = level + df
+    return pv/level, level
+
    
 def ex3():
 
