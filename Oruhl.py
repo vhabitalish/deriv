@@ -74,7 +74,7 @@ def ex3():
     
     np.random.seed(100910)
     initts = np.ones(N+1) * 0.12 
-    meanrev = np.ones([N])*0.1
+    meanrev = np.ones([N])*0.01
     sigma = np.ones([N])*0.03
   
     #R0term = np.concatenate((np.linspace(0.071,0.095,10), np.ones([N-10+1])*0.095))
@@ -98,6 +98,7 @@ def ex3():
 
     exp = random.randint(1,int(N/2))
     term = random.randint(exp+1, N)
+    term = term - exp
     print("expiry",exp,"term",term)
     swappath = np.ones([numpaths])
     for j in range(0, numpaths):    
