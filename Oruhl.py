@@ -45,36 +45,36 @@ class OrUhl:
                     + (r[p-i-1] - self.initts[p-i-1])*math.exp(-alpha*t))
         return r[:k] 
 
-def swap(R,K):
+def swap(R,K,t=1):
     n = R.shape[0]
     df = 1
     pv = 0
     for i in range(0,n):
-        df = df * 1/(1+R[i])
-        pv = pv + (R[i]-K)*df
+        df = df * 1/(1+R[i]*t)
+        pv = pv + (R[i]-K)*t*df
     return pv
 
-def parswap(R):
+def parswap(R, t=1):
     n = R.shape[0]
     df = 1
     pv = 0
     level = 0
     for i in range(0,n):
-        df = df * 1/(1+R[i])
-        pv = pv + (R[i])*df
+        df = df * 1/(1+R[i]*t)
+        pv = pv + (R[i]*t)*df
         level = level + df
-    return pv/level, level
+    return pv/level/t, level
 
    
 def ex3():
 
-    numpaths = 10000 
+    numpaths = 50000 
     N = 20
-    T = 10
-    
+    T = 10.0
+    t= T/N
     np.random.seed(100910)
     initts = np.ones(N+1) * 0.12 
-    meanrev = np.ones([N])*0.01
+    meanrev = np.ones([N])*0.0001
     sigma = np.ones([N])*0.03
   
     #R0term = np.concatenate((np.linspace(0.071,0.095,10), np.ones([N-10+1])*0.095))
@@ -102,8 +102,8 @@ def ex3():
     print("expiry",exp,"term",term)
     swappath = np.ones([numpaths])
     for j in range(0, numpaths):    
-        swappath[j] = parswap(lgmm.fwdsonpath(exp,j,term))[0]
-    print(np.std(swappath)/math.sqrt(exp)*100)
+        swappath[j] = parswap(lgmm.fwdsonpath(exp,j,term),t)[0]
+    print(np.std(swappath)/math.sqrt(exp*t)*100)
     
  
 
