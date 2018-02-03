@@ -7,6 +7,7 @@ import numpy.random
 import scipy.optimize
 import matplotlib.pyplot as plt
 import deriv.Correlatedpaths as corpath
+import deriv.util as du
 import random
 
 class OrUhl:
@@ -68,14 +69,12 @@ def parswap(R, t=1):
    
 def ex3():
 
-    numpaths = 50000 
-    N = 20
-    T = 10.0
+    numpaths = 20000 
+    N = 40
+    T = 20.0
     t= T/N
     np.random.seed(100910)
-    initts = np.ones(N+1) * 0.12 
-    meanrev = np.ones([N])*0.0001
-    sigma = np.ones([N])*0.03
+    
   
     #R0term = np.concatenate((np.linspace(0.071,0.095,10), np.ones([N-10+1])*0.095))
     #R00 = np.zeros(N+1)
@@ -83,27 +82,38 @@ def ex3():
     #meanrev = np.concatenate((np.linspace( -0.5,-0.005,3), np.ones([N-3])*0.00005))
     #meanrev = np.ones([N]) *  0.05
    
-    paths = corpath.getpaths(np.array([[1]]), numpaths, N)
-    lgmm = OrUhl(initts, meanrev, sigma, paths[0], T)
-    R = lgmm.paths    
-    numpaths=R.shape[1]
-
+    paths = corpath.getpaths(np.eye(2), numpaths, N)
+    initts0 = np.ones(N+1) * 0.12 
+    meanrev0 = du.funa(-2.5, 0, 0.5, N)
+    sigma0 = du.funa(0.0007, 0, 2, N)
+    lgmm0 = OrUhl(initts0, meanrev0, sigma0, paths[0], T)
+    
+    initts1 = np.ones(N+1) * 0.0001
+    meanrev1 = du.funa(0.01, 0.01, 0.5, N)
+    sigma1 = du.funa(0.005, 0.01, 1.0, N)
+    lgmm1 = OrUhl(initts1, meanrev1, sigma1, paths[0], T)
+    
+    
+  
     #plot 10 random sample paths    
-    a=np.random.permutation(R.shape[1])
+    a=np.random.permutation(lgmm0.paths.shape[1])
 
     for i in range(0,30):
-        plt.plot(R[:,a[i]])
+        plt.plot(lgmm0.paths[:,a[i]]+ lgmm1.paths[:,a[i]])
     plt.title("evolution of r")
     plt.show()
 
-    exp = random.randint(1,int(N/2))
-    term = random.randint(exp+1, N)
-    term = term - exp
-    print("expiry",exp,"term",term)
-    swappath = np.ones([numpaths])
-    for j in range(0, numpaths):    
-        swappath[j] = parswap(lgmm.fwdsonpath(exp,j,term),t)[0]
-    print(np.std(swappath)/math.sqrt(exp*t)*100)
+    
+    for expiry in range(1,min(N - 10, 20),2):
+        print("{:03}".format(expiry), end=":")
+        for term in range(1, min(N - expiry,20),2):
+            swappath = np.ones([numpaths])
+            for j in range(0, numpaths):    
+                swappath[j] = parswap(
+                        lgmm0.fwdsonpath(expiry,j,term)
+                        + lgmm1.fwdsonpath(expiry,j,term),t)[0]
+            print("{:03.2f}".format(np.std(swappath)/math.sqrt(expiry*t)*100), end="  ")
+        print()
     
  
 
