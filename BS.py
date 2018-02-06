@@ -5,7 +5,7 @@ Created on Sun Jan 14 23:35:55 2018
 
 @author: vishal
 """
-from math import sqrt,exp,log
+from math import sqrt,exp,log,pi
 from scipy.stats import norm
 import scipy.optimize as opt
 
@@ -45,5 +45,17 @@ def blackimply(F,K,T,cp,prem):
     return opt.newton(optblack(F,K,T,cp,prem), x0=0.1, fprime=optblackvega(F,K,T,cp,prem))
     return opt.newton(optblack(F,K,T,cp,prem), x0=0.1)
 
+def nblack(v,F,K,T,cp):
+    """ callorput = 1 call/ -1 put 
+    """
+    N = norm.cdf
+    d1 = (F - K)/(v*sqrt(T))
+    price = cp*(F-K)*N(cp*d1) + v*sqrt(T/2/pi)*exp(-d1*d1/2)
+    vega = sqrt(T/2/pi)*exp(-d1*d1/2)
+    return price
+
+
+
 if __name__ == "__main__":
     print(blackimply(100,105,1,1,3.99))
+    print(nblack(10,100,100,1,-1))

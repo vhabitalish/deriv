@@ -9,6 +9,7 @@ import deriv.Correlatedpaths as corpath
 import deriv.Oruhl as irprocess
 import deriv.Logoruhl as volprocess
 import BS
+import deriv.util as du
  
 class Stochvol:
     """ LOG normal process with stoch vol
@@ -19,7 +20,7 @@ class Stochvol:
         rdom : set of rates (df = 1/(1+rT) same dim as paths 
         rfor : set of for rates same dim as paths
     """
-    def __init__(self, spot, sigma, paths, time, rdom = None, rfor = None):
+    def __init__(self, spot, sigma, paths, time, rdom = None, rfor = None, lvol = None):
         self.sigma = sigma
         self.numpaths = paths.shape[1]
         self.timeslices = paths.shape[0]
@@ -30,18 +31,22 @@ class Stochvol:
         if rdom is None:
             rdom = np.ones((self.timeslices, self.numpaths)) * 0.05 
             rfor = np.ones((self.timeslices, self.numpaths)) * 0.05 
-        
+        if lvol is None:
+            def linlvol(R,fwd,t):
+                return 1.0
+            lvol = linlvol
+            
         dffor = 1.0/(1+rfor*t)
         dfdom = 1.0/(1+rdom*t)
         R[0, :] = spot
         for i in range(1,self.timeslices + 1):
+            fwd = np.mean(R[i-1])/(1+t*np.mean(rfor[i-1]))*(1+t*np.mean(rdom[i-1]))
             for j in range(0, self.numpaths):
-                vol = np.maximum(0,sigma[i-1, j] )
+                vol = np.maximum(0,sigma[i-1, j] ) 
                 R[i, j] = (R[i-1, j]*dffor[i-1,j]/dfdom[i-1,j]
                     * math.exp(-0.5*vol*vol*t + paths[i-1,j] * vol * math.sqrt(t)))
             # do drift adjustment
-            driftadj = (np.mean(R[i])/np.mean(R[i-1])*
-                    (1+t*np.mean(rfor[i-1]))/(1+t*np.mean(rdom[i-1])))
+            driftadj = np.mean(R[i])/fwd
             R[i] = R[i]/driftadj        
         self.paths = R
     
@@ -49,6 +54,14 @@ class Stochvol:
         payoff = np.mean(np.maximum(callput*(self.paths[-1,:] - strike),0))
         return payoff
    
+    
+def lvoltanh(R,f,t):
+    sigma = 10.0
+    stdev = sigma*math.sqrt(t)
+    return 1 - 0.25*math.tanh((R-f)/stdev)
+    
+    
+    
 def main():
     
     np.random.seed(100910)
@@ -59,12 +72,12 @@ def main():
     t = T/N
 
     # 0 :fx, 1:fxvol, 2:dom, 3:for 
-    rho01 = +0.2
-    rho02 = -0.7
-    rho03 = 0.2
-    rho12 = 0
-    rho13 = 0
-    rho23 = -0.4
+    rho01 = -0.9
+    rho02 = -0.35
+    rho03 = -0.7
+    rho12 = 0.2
+    rho13 = 0.5
+    rho23 = 0
 
     cov = np.array([[1, rho01, rho02, rho03],
                     [rho01, 1, rho12, rho13],
@@ -75,24 +88,24 @@ def main():
     paths = corpath.getpaths(cov, numpaths, N)
     
     #dom
-    domts = np.ones(N+1) * 0.12 
-    meanrev = np.ones([N])*0.1
-    sigma = np.ones([N])*0.03
+    domts = np.ones(N+1) * 0.001
+    meanrev = np.ones([N])*0.01
+    sigma = np.ones([N])*0.005
     rdom = irprocess.OrUhl(domts,meanrev, sigma, paths[2], T)    
 
     #for
-    forts = np.ones(N+1) * 0.02 
-    meanrev = np.ones([N])*0.1
-    sigma = np.ones([N])*0.007
+    forts = du.funa(0.135,0.1,1.0,N+1)
+    meanrev = np.ones([N])*0.05
+    sigma = np.ones([N])*0.015
     rfor = irprocess.OrUhl(forts,meanrev, sigma, paths[3], T)    
 
 
     #Stoch vol process
     meanrev = np.ones([N])*0.1
-    vvol = np.ones([N])*0.15
-    basevol = np.ones([N+1])*0.1
+    vvol = np.ones([N])*0.4
+    basevol = np.ones([N+1])*0.145
     vol = volprocess.Logoruhl(basevol, meanrev, vvol, paths[1], T)
-    spot = 3.75
+    spot = 29.00
     sigma = vol.paths
     asset = Stochvol(spot, sigma, paths[0], T, rdom.paths, rfor.paths)
     #plot 10 random sample paths    
@@ -139,7 +152,7 @@ def main():
 
     fwd = fxfwds[-1]
     std = fxvolpaths[-1] * fwd
-    x = np.linspace(fwd - 2 * std, fwd + 2 * std,20)
+    x = np.linspace(fwd - 1.5 * std, fwd + 1.5 * std, 15)
     y = [ BS.blackimply(fwd,stri,T,1,asset.optprice(stri,1)) for stri in x]
     plt.plot(x,y)
     plt.title("Terminal Smile")
@@ -147,8 +160,27 @@ def main():
     print(BS.blackimply(fwd, fwd +std, T, 1,(asset.optprice(fwd+std,1))))
     print(BS.blackimply(fwd, fwd, T, 1,(asset.optprice(fwd,1))))
     print(BS.blackimply(fwd, fwd - std, T, -1,(asset.optprice(fwd-std,-1))))
-    return asset, vol
+    return asset, vol, rdom, rfor
+
+
+def kiko(asset, vol, rdom, rfor):
+    timesteps = asset.paths.shape[0] - 1
+    numpaths = asset.paths.shape[1]
+    
+    # cpn  if fx > cpnk else 0
+    cpn = 0.1
+    cpnk = asset.paths[0,0] - 5
+    
+    # dom libor margin 
+    lmar = 0.001
+    
+    #payatend
+    redk = asset.paths[0,0] - 5
+    
+    
+    
+    
     
 
 if __name__ == "__main__":
-    asset, vol = main()
+    asset, vol, dom, fgn = main()
