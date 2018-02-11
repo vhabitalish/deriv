@@ -32,7 +32,7 @@ class Stochvol:
             rdom = np.ones((self.timeslices, self.numpaths)) * 0.05 
             rfor = np.ones((self.timeslices, self.numpaths)) * 0.05 
         if lvol is None:
-            def linlvol(R,fwd,t):
+            def linlvol(R,fwd,vol,t):
                 return 1.0
             lvol = linlvol
             
@@ -42,7 +42,8 @@ class Stochvol:
         for i in range(1,self.timeslices + 1):
             fwd = np.mean(R[i-1])/(1+t*np.mean(rfor[i-1]))*(1+t*np.mean(rdom[i-1]))
             for j in range(0, self.numpaths):
-                vol = np.maximum(0,sigma[i-1, j] ) 
+                vol = np.maximum(0,sigma[i-1, j] )
+                vol = vol *lvol(fwd,R[i-1,j],vol,t*i)
                 R[i, j] = (R[i-1, j]*dffor[i-1,j]/dfdom[i-1,j]
                     * math.exp(-0.5*vol*vol*t + paths[i-1,j] * vol * math.sqrt(t)))
             # do drift adjustment
@@ -50,33 +51,37 @@ class Stochvol:
             R[i] = R[i]/driftadj        
         self.paths = R
     
-    def optprice(self,strike, callput):
-        payoff = np.mean(np.maximum(callput*(self.paths[-1,:] - strike),0))
+    def optprice(self,strike, callput, node = -1):
+        payoff = np.mean(np.maximum(callput*(self.paths[node,:] - strike),0))
         return payoff
    
     
-def lvoltanh(R,f,t):
-    sigma = 10.0
-    stdev = sigma*math.sqrt(t)
-    return 1 - 0.25*math.tanh((R-f)/stdev)
+def quad(R,f,vol,t):
+    a = 0.1
+    b = -0.5
+    c = 1.0
+    stdev = vol*math.sqrt(t)
+    x = max(-10,min(10,np.log(R/f)/stdev))
+    #print(x,du.quad(x,a,b,c))
+    return du.quad(x,a,b,c)
     
     
     
 def main():
     
     np.random.seed(100910)
-    numpaths = 100000 
+    numpaths = 50000 
     N = 20
     rho = 0.75
     T = 10.0
     t = T/N
 
     # 0 :fx, 1:fxvol, 2:dom, 3:for 
-    rho01 = -0.9
+    rho01 = 0
     rho02 = -0.35
     rho03 = -0.7
-    rho12 = 0.2
-    rho13 = 0.5
+    rho12 = 0
+    rho13 = 0
     rho23 = 0
 
     cov = np.array([[1, rho01, rho02, rho03],
@@ -102,12 +107,12 @@ def main():
 
     #Stoch vol process
     meanrev = np.ones([N])*0.1
-    vvol = np.ones([N])*0.4
+    vvol = np.ones([N])*0.2
     basevol = np.ones([N+1])*0.145
     vol = volprocess.Logoruhl(basevol, meanrev, vvol, paths[1], T)
     spot = 29.00
     sigma = vol.paths
-    asset = Stochvol(spot, sigma, paths[0], T, rdom.paths, rfor.paths)
+    asset = Stochvol(spot, sigma, paths[0], T, rdom.paths, rfor.paths, quad)
     #plot 10 random sample paths    
     R = asset.paths
     
@@ -139,7 +144,7 @@ def main():
     for i in range(1,N+1):
         fxfwds[i] = fxfwds[i-1]*(1+t*np.mean(rdom.paths[i-1]))/(1+t*np.mean(rfor.paths[i-1]))
         fxfwdspaths[i] = np.mean(R[i])
-        fxvolpaths[i] = np.std(np.log(R[i]))/math.sqrt(t*i)
+        fxvolpaths[i] = BS.blackimply(fxfwdspaths[i],fxfwdspaths[i],t*i,1,asset.optprice(fxfwdspaths[i],1,i))
     
     plt.plot(fxfwds)
     plt.plot(fxfwdspaths)
@@ -153,7 +158,7 @@ def main():
     fwd = fxfwds[-1]
     std = fxvolpaths[-1] * fwd
     x = np.linspace(fwd - 1.5 * std, fwd + 1.5 * std, 15)
-    y = [ BS.blackimply(fwd,stri,T,1,asset.optprice(stri,1)) for stri in x]
+    y = [ BS.blackimply(fwd,stri,T,-1,asset.optprice(stri,-1)) for stri in x]
     plt.plot(x,y)
     plt.title("Terminal Smile")
     plt.show()
