@@ -8,7 +8,7 @@ Created on Sun Jan 14 23:35:55 2018
 from math import sqrt,exp,log,pi
 from scipy.stats import norm
 import scipy.optimize as opt
-
+import numpy as np
 
 def black(v,F,K,T,cp):
     """ callorput = 1 call/ -1 put 
@@ -42,7 +42,7 @@ def optblackvega(F,K,T,cp,prem):
 
 
 def blackimply(F,K,T,cp,prem):
-    return opt.newton(optblack(F,K,T,cp,prem), x0=0.1, fprime=optblackvega(F,K,T,cp,prem))
+    #return opt.newton(optblack(F,K,T,cp,prem), x0=0.1, fprime=optblackvega(F,K,T,cp,prem))
     return opt.newton(optblack(F,K,T,cp,prem), x0=0.1)
 
 def nblack(v,F,K,T,cp):
@@ -54,8 +54,19 @@ def nblack(v,F,K,T,cp):
     vega = sqrt(T/2/pi)*exp(-d1*d1/2)
     return price
 
+def mcoptprice(paths, strike, callput):
+    payoff = np.mean(np.maximum(callput*(paths[:] - strike),0))
+    return payoff
 
-
+def mccdf(paths):
+    pathssor = np.sort(paths)
+    noofpoints = paths.shape[0]
+    cdf = np.ones((noofpoints,2))*0.5
+    for i in range(0,paths.shape[0]):
+        cdf[i,0] = pathssor[i]
+        cdf[i,1] = paths[paths < pathssor[i]].shape[0]/noofpoints
+    return cdf
+        
 if __name__ == "__main__":
     print(blackimply(100,105,1,1,3.99))
     print(nblack(10,100,100,1,-1))
