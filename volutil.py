@@ -72,8 +72,8 @@ def main():
     vols = 0.2
     sim = fwd*np.exp(-vols*vols*T/2+vols*xran*math.sqrt(T))
     
-    lbound = vol.cumdf.getstrike(0.1)
-    ubound = vol.cumdf.getstrike(0.95)
+    lbound = vol.cumdf.getstrike(0.01)
+    ubound = vol.cumdf.getstrike(0.99)
     print(lbound,ubound)
     x = np.linspace(ubound , lbound, 15)
     y = [ BS.blackimply(fwd,stri,T,-1, BS.mcoptprice(sim,stri,-1)) for stri in x]
@@ -85,8 +85,10 @@ def main():
     sim1 = np.array([vol.cumdf.getstrike(cumdfbase.getcumprob(strk)) for strk in sim])
     y = 0.2*du.quad(np.log(x/fwd)/0.2/T,0.05,-0.05,1.05)
     y1 = [ BS.blackimply(fwd,stri,T,-1, BS.mcoptprice(sim1,stri,-1)) for stri in x]
-    plt.plot(x,y)
-    plt.plot(x,y1)
+    plt.plot(x,y, label="original")
+    plt.plot(x,y1, label="marginadj")
+    plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
+
     plt.show()
     
     

@@ -37,13 +37,15 @@ def optblack(F,K,T,cp,prem):
 
 def optblackvega(F,K,T,cp,prem):
     def boundblackvega(vol):
+        #print("vega=",blackvega(F,K,T,vol,cp),F,K,T,vol,cp)
         return blackvega(F,K,T,vol,cp)
     return boundblackvega
 
 
 def blackimply(F,K,T,cp,prem):
+    return opt.brentq(optblack(F,K,T,cp,prem),0.000001,10)
     #return opt.newton(optblack(F,K,T,cp,prem), x0=0.1, fprime=optblackvega(F,K,T,cp,prem))
-    return opt.newton(optblack(F,K,T,cp,prem), x0=0.1)
+    #return opt.newton(optblack(F,K,T,cp,prem), x0=0.1)
 
 def nblack(v,F,K,T,cp):
     """ callorput = 1 call/ -1 put 
@@ -68,5 +70,7 @@ def mccdf(paths):
     return cdf
         
 if __name__ == "__main__":
-    print(blackimply(100,105,1,1,3.99))
+    #print(blackimply(100,105,1,1,3.99))
     print(nblack(10,100,100,1,-1))
+    print(blackimply(15,3.806,10,-1,0.03259))
+    
