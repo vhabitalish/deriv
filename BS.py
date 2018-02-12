@@ -30,6 +30,10 @@ def blackvega(F,K,T,v,cp):
     vega = F*sqrt(T)*n(d1)
     return vega
 
+def blackdelta(v,F,K,T,cp):
+    d1 = (log(F/K)+(0.5*v*v)*T)/(v*sqrt(T))
+    return norm.cdf(d1) if cp == 1 else 1 - norm.cdf(d1)
+    
 def optblack(F,K,T,cp,prem):
     def boundblack(vol):
         return black(vol,F,K,T,cp) - prem
