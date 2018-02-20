@@ -82,7 +82,7 @@ def mccdf(paths):
     return cdf
         
 def volfromsim(sim, fwd, strike, mat):
-    cp = 1 if fwd < strike else -1
+    cp = -1 if fwd < strike else -1
     #cp = -1 
     return blackimply(fwd,strike,mat,cp, mcoptprice(sim, strike, cp))
     

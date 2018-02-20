@@ -5,7 +5,7 @@ Created on Sat Feb 10 21:43:49 2018
 
 @author: vishal
 """
-import BS
+import deriv.BS as BS
 import deriv.util as du
 import numpy as np
 import matplotlib.pyplot as plt
@@ -90,8 +90,11 @@ class cdf:
             
     def getsimulation(self,size):
         ''' use MC '''
-        x = np.random.uniform(size = size)
+        #x = np.random.uniform(size = size)
+        x = np.random.uniform(size = int(size/2))
+        x = np.concatenate((x, 1-x))
         '''
+        
         x = np.random.normal(size = size)
         vols = 0.2
         fwd = 15.0
@@ -107,7 +110,7 @@ class cdf:
         simul = self.getsimulation(500000)
         fwd = simul.mean()
         print("Fwd",fwd)
-        #fwd = 15.0
+        fwd = 15.0
         strikevol = np.zeros((strikes.shape[0],2))
         strikevol[:,0] = strikes
         strikevol[:,1] = np.array([ BS.volfromsim(simul,fwd,stri,mat) for stri in strikes] )
@@ -142,7 +145,7 @@ def fivepointsmile(fwd, atm, rr25, fly25, rr10, fly10, mat):
 
 def strikevolinterp(strikevol):
     points = 1000
-    strikes = np.linspace(strikevol[0,0]/2,strikevol[-1,0]*2,points)
+    strikes = np.linspace(strikevol[0,0],strikevol[-1,0],points)
     interfn = interpolate.interp1d(strikevol[:,0], strikevol[:,1], fill_value = "extrapolate",kind = 1)
     interpstrikesmile = np.zeros([points,2])
     for i in range(0,points):
@@ -171,12 +174,11 @@ def fivepointtostrikevol(fwd, atm, rr25, fly25, rr10, fly10, mat):
     prob[:,1] = baseprob[:,1]
     strikevol = cdf(prob).getstrikevol(prob[:,0], mat)
     return strikevol
-     
 
-def main():
+def testquadsmile():
     fwd = 15.0
     T = 10
-    a =0.4
+    a =0.5
     b= 0.0001
     c =1.05
     stvol = np.ones([1000,2])
@@ -223,18 +225,23 @@ def main():
     
     print(vol.getrr(0.1), vol.getfly(0.1))
     
+    strikevolsmile = fivepointtostrikevol(15,0.20,-0.06,0.01,-0.12,0.03,5)
+    plt.plot(strikevolsmile[:,0], strikevolsmile[:,1])
+    plt.title("interpolated smile")
+    plt.show()
     
-    voluninterp = fivepointsmile(15,0.20,-0.06,0.01,-0.12,0.03,5)
+    return vol
+
+def main():
+    fwd = 15
+    T = 5
+    voluninterp = fivepointsmile(fwd,0.20,-0.06,0.01,-0.13,0.04,T)
     volinterp = strikevolinterp(voluninterp)
     plt.plot(voluninterp[:,0], voluninterp[:,1])
     plt.title("un interpolated smile")
     plt.show()
     
-    '''
-    strikevolsmile = fivepointtostrikevol(15,0.20,-0.06,0.01,-0.12,0.03,5)
-    plt.plot(strikevolsmile[:,0], strikevolsmile[:,1])
-    plt.title("interpolated smile")
-    plt.show()
+    
     
     plt.plot(volinterp[:,0], volinterp[:,1])
     plt.title("interpolated smile")
@@ -247,8 +254,8 @@ def main():
     print(vol1.deltastrike(0.1,1), vol1.deltastrike(0.1,-1))
     
     print(vol1.getrr(0.1), vol1.getfly(0.1))
-    '''
-    return vol
+    
+    return vol1
 
 if __name__ == "__main__":
      vs = main()

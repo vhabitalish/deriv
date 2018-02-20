@@ -8,7 +8,9 @@ import matplotlib.pyplot as plt
 import deriv.Correlatedpaths as corpath
 import deriv.Oruhl as irprocess
 import deriv.Logoruhl as volprocess
-import BS
+import deriv.BS as BS
+import deriv.volutil as vu
+import scipy.interpolate as intp
 import deriv.util as du
  
 class Stochvol:
@@ -20,7 +22,7 @@ class Stochvol:
         rdom : set of rates (df = 1/(1+rT) same dim as paths 
         rfor : set of for rates same dim as paths
     """
-    def __init__(self, spot, sigma, paths, time, rdom = None, rfor = None, lvol = None):
+    def __init__(self, spot, sigma, paths, time, rdom = None, rfor = None, volcalib = None ):
         self.sigma = sigma
         self.numpaths = paths.shape[1]
         self.timeslices = paths.shape[0]
@@ -31,24 +33,27 @@ class Stochvol:
         if rdom is None:
             rdom = np.ones((self.timeslices, self.numpaths)) * 0.05 
             rfor = np.ones((self.timeslices, self.numpaths)) * 0.05 
-        if lvol is None:
-            def linlvol(R,fwd,vol,t):
-                return 1.0
-            lvol = linlvol
-            
         dffor = 1.0/(1+rfor*t)
         dfdom = 1.0/(1+rdom*t)
         R[0, :] = spot
         for i in range(1,self.timeslices + 1):
+            print("calib timeslice",i)
             fwd = np.mean(R[i-1])/(1+t*np.mean(rfor[i-1]))*(1+t*np.mean(rdom[i-1]))
             for j in range(0, self.numpaths):
                 vol = np.maximum(0,sigma[i-1, j] )
-                vol = vol *lvol(fwd,R[i-1,j],vol,t*i)
+                vol = vol
                 R[i, j] = (R[i-1, j]*dffor[i-1,j]/dfdom[i-1,j]
                     * math.exp(-0.5*vol*vol*t + paths[i-1,j] * vol * math.sqrt(t)))
             # do drift adjustment
             driftadj = np.mean(R[i])/fwd
-            R[i] = R[i]/driftadj        
+            R[i] = R[i]/driftadj
+            if volcalib is not None:
+                cdf0 = vu.cdf(BS.mccdf(R[i]))
+                cdf1 = volcalib[i-1].cumdf
+                p = cdf0.probinterp(R[i])
+                adjRi  = cdf1.probinterpinv(p)
+                R[i] = adjRi
+                
         self.paths = R
     
     def optprice(self,strike, callput, node = -1):
@@ -70,12 +75,13 @@ def quad(R,f,vol,t):
 def main():
     
     np.random.seed(100910)
-    numpaths = 50000 
-    N = 20
+    numpaths = 20000 
+    N = 10
     rho = 0.75
-    T = 10.0
+    T = 5.0
     t = T/N
-
+    spot = 29.00
+    
     # 0 :fx, 1:fxvol, 2:dom, 3:for 
     rho01 = 0
     rho02 = -0.35
@@ -99,20 +105,34 @@ def main():
     rdom = irprocess.OrUhl(domts,meanrev, sigma, paths[2], T)    
 
     #for
-    forts = du.funa(0.135,0.1,1.0,N+1)
+    forts = du.funa(0.135,0.115,1.0,N+1)
     meanrev = np.ones([N])*0.05
     sigma = np.ones([N])*0.015
     rfor = irprocess.OrUhl(forts,meanrev, sigma, paths[3], T)    
 
 
+    atm = intp.interp1d([0.5,5],[0.135, 0.21])
+    rr25 = intp.interp1d([0.5,5],[-0.035, -0.07])
+    rr10 = intp.interp1d([0.5,5],[-0.06, -0.135])
+    fly25 = intp.interp1d([0.5,5],[0.005, 0.0125])
+    fly10 = intp.interp1d([0.5,5],[0.02, 0.04])
+    fwd = spot
+    volcalib = []    
+    for i in range(0,N):
+        ti = (i+1)*t
+        fwd = fwd*(1+domts[i]*t)/(1+forts[i]*t)
+        #print( fwd,atm(ti),rr25(ti),fly25(ti),rr10(ti),fly10(ti),ti)
+        voluninterp = vu.fivepointsmile(fwd,atm(ti),rr25(ti),fly25(ti),rr10(ti),fly10(ti),ti)
+        volinterp = vu.strikevolinterp(voluninterp)
+        volcalib.append(vu.logvolslice(volinterp, fwd, ti))
+        
     #Stoch vol process
     meanrev = np.ones([N])*0.1
     vvol = np.ones([N])*0.2
     basevol = np.ones([N+1])*0.145
     vol = volprocess.Logoruhl(basevol, meanrev, vvol, paths[1], T)
-    spot = 29.00
     sigma = vol.paths
-    asset = Stochvol(spot, sigma, paths[0], T, rdom.paths, rfor.paths, quad)
+    asset = Stochvol(spot, sigma, paths[0], T, rdom.paths, rfor.paths, volcalib )
     #plot 10 random sample paths    
     R = asset.paths
     
@@ -141,6 +161,7 @@ def main():
     fxfwdspaths = np.ones([N+1])*spot    
     fxvolpaths = np.ones([N+1])*basevol[0]    
     
+    
     for i in range(1,N+1):
         fxfwds[i] = fxfwds[i-1]*(1+t*np.mean(rdom.paths[i-1]))/(1+t*np.mean(rfor.paths[i-1]))
         fxfwdspaths[i] = np.mean(R[i])
@@ -165,7 +186,7 @@ def main():
     print(BS.blackimply(fwd, fwd +std, T, 1,(asset.optprice(fwd+std,1))))
     print(BS.blackimply(fwd, fwd, T, 1,(asset.optprice(fwd,1))))
     print(BS.blackimply(fwd, fwd - std, T, -1,(asset.optprice(fwd-std,-1))))
-    return asset, vol, rdom, rfor
+    return asset, vol, rdom, rfor, volcalib
 
 
 def kiko(asset, vol, rdom, rfor):
@@ -188,4 +209,4 @@ def kiko(asset, vol, rdom, rfor):
     
 
 if __name__ == "__main__":
-    asset, vol, dom, fgn = main()
+    asset, vol, dom, fgn, volcalib = main()
