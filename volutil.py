@@ -67,8 +67,8 @@ class logvolslice:
 class cdf:
     def __init__(self,strikeprob):
         self.strikeprob = strikeprob
-        self.probinterp = interpolate.interp1d(strikeprob[:,0],strikeprob[:,1], kind = 3, fill_value = "extrapolate")
-        self.probinterpinv = interpolate.interp1d(strikeprob[:,1],strikeprob[:,0], kind = 3, fill_value = "extrapolate")
+        self.probinterp = interpolate.interp1d(np.log(strikeprob[:,0]),strikeprob[:,1], kind = 1, fill_value = "extrapolate")
+        self.probinterpinv = interpolate.interp1d(strikeprob[:,1],np.log(strikeprob[:,0]), kind = 1, fill_value = "extrapolate")
     def getcumprob(self,strike):
         '''
         if strike > self.strikeprob[-1,0]:
@@ -76,9 +76,9 @@ class cdf:
         if strike < self.strikeprob[0,0]:
             return self.strikeprob[0,1]
         '''    
-        return self.probinterp(strike)
+        return self.probinterp(np.log(strike))
     def getstrike(self,prob):
-        return self.probinterpinv(prob)
+        return np.exp(self.probinterpinv(prob))
     def getpdf(self):
         strikeprob = self.strikeprob
         strikeden = np.zeros((strikeprob.shape[0] - 1, 2))
@@ -103,7 +103,7 @@ class cdf:
 
         cdf1 = cdf(BS.mccdf(x))
         '''
-        sim = self.probinterpinv(x)
+        sim = self.getstrike(x)
         return sim    
    
     def getstrikevol(self,strikes, mat):
@@ -146,7 +146,7 @@ def fivepointsmile(fwd, atm, rr25, fly25, rr10, fly10, mat):
 def strikevolinterp(strikevol):
     points = 1000
     strikes = np.linspace(strikevol[0,0],strikevol[-1,0],points)
-    interfn = interpolate.interp1d(strikevol[:,0], strikevol[:,1], fill_value = "extrapolate",kind = 1)
+    interfn = interpolate.interp1d(strikevol[:,0], strikevol[:,1], fill_value = "extrapolate",kind = 3)
     interpstrikesmile = np.zeros([points,2])
     for i in range(0,points):
         interpstrikesmile[i,0] = strikes[i]
@@ -172,6 +172,13 @@ def fivepointtostrikevol(fwd, atm, rr25, fly25, rr10, fly10, mat):
     prob = baseprob.copy()
     prob[:,0] = [np.exp(strikevolmap(np.log(stri))) for stri in baseprob[:,0]]
     prob[:,1] = baseprob[:,1]
+    plt.plot(prob[:,0],prob[:,1],label ="smile")
+    plt.plot(baseprob[:,0],baseprob[:,1],label ="nonsmile")
+    plt.title("smile")
+    plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
+
+    plt.show()
+    
     strikevol = cdf(prob).getstrikevol(prob[:,0], mat)
     return strikevol
 
@@ -235,8 +242,9 @@ def testquadsmile():
 def main():
     fwd = 15
     T = 5
-    voluninterp = fivepointsmile(fwd,0.20,-0.06,0.01,-0.13,0.04,T)
+    voluninterp = fivepointsmile(fwd,0.20,-0.07,0.01,-0.11,0.065,T)
     volinterp = strikevolinterp(voluninterp)
+    #volinterp = fivepointtostrikevol(fwd,0.20,-0.06,0.01,-0.11,0.05,T)
     plt.plot(voluninterp[:,0], voluninterp[:,1])
     plt.title("un interpolated smile")
     plt.show()

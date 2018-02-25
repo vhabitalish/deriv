@@ -29,12 +29,17 @@ class OrUhl:
         t = self.time / self.timeslices
         R[0, :] = 0
         for i in range(1,self.timeslices + 1):
+            alpha = self.meanrev[i-1]
+            sigma = self.sigma[i-1]
+            R[i] = (R[i-1]*math.exp(-alpha*t)
+                    + paths[i-1] * sigma * math.sqrt((1 - 
+                    math.exp(-2*alpha*t))/(2*alpha)))           
+        '''       
             for j in range(0, self.numpaths):
-                alpha = self.meanrev[i-1]
-                sigma = self.sigma[i-1]
                 R[i, j] = (R[i-1, j]*math.exp(-alpha*t)
                     + paths[i-1,j] * sigma * math.sqrt((1 - 
                     math.exp(-2*alpha*t))/(2*alpha)))           
+        '''
         self.paths = R + np.reshape(initts,(self.timeslices+1,1))
     
     def fwdsonpath(self,i,j,k):

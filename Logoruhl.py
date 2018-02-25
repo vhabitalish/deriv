@@ -27,14 +27,21 @@ class Logoruhl:
         t = self.time / self.timeslices
         R[0, :] = math.log(initts[0])
         for i in range(1,self.timeslices + 1):
+            alpha = self.meanrev[i-1]
+            sigma = self.sigma[i-1]
+            vol = sigma * math.sqrt((1 -math.exp(-2*alpha*t))/(2*alpha))
+            R[i] = (np.log(initts[i])
+                    + (R[i-1] - np.log(initts[i-1])) *math.exp(-alpha*t)
+                    - 0.5 * vol * vol * math.sqrt(t)
+                    + paths[i-1] * vol)        
+            '''
             for j in range(0, self.numpaths):
-                alpha = self.meanrev[i-1]
-                sigma = self.sigma[i-1]
-                vol = sigma * math.sqrt((1 -math.exp(-2*alpha*t))/(2*alpha))
+
                 R[i, j] = (np.log(initts[i])
                     + (R[i-1, j] - math.log(initts[i-1])) *math.exp(-alpha*t)
                     - 0.5 * vol * vol * math.sqrt(t)
                     + paths[i-1,j] * vol)        
+            '''
         self.paths = np.exp(R)
 
 

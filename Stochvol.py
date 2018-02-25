@@ -4,6 +4,7 @@
 import math
 import numpy as np
 import numpy.random
+import numpy.linalg
 import matplotlib.pyplot as plt
 import deriv.Correlatedpaths as corpath
 import deriv.Oruhl as irprocess
@@ -12,6 +13,8 @@ import deriv.BS as BS
 import deriv.volutil as vu
 import scipy.interpolate as intp
 import deriv.util as du
+import scipy.optimize as opt
+
  
 class Stochvol:
     """ LOG normal process with stoch vol
@@ -36,28 +39,38 @@ class Stochvol:
         dffor = 1.0/(1+rfor*t)
         dfdom = 1.0/(1+rdom*t)
         R[0, :] = spot
+        cumppt = np.array([0.25,0.5,0.75])
+
         for i in range(1,self.timeslices + 1):
             print("calib timeslice",i)
             fwd = np.mean(R[i-1])/(1+t*np.mean(rfor[i-1]))*(1+t*np.mean(rdom[i-1]))
-            volj = np.maximum(0,sigma[i-1])
-            R[i] = R[i-1] *dffor[i-1]/dfdom[i-1]*np.exp(-volj*volj*t/2 + paths[i-1]*volj*math.sqrt(t))
-            '''
-            for j in range(0, self.numpaths):
-                vol = np.maximum(0,sigma[i-1, j] )
-                vol = vol
-                R[i, j] = (R[i-1, j]*dffor[i-1,j]/dfdom[i-1,j]
-                    * math.exp(-0.5*vol*vol*t + paths[i-1,j] * vol * math.sqrt(t)))
-            '''
+            volji = np.maximum(0,sigma[i-1])
+            cdf1 = volcalib[i-1].cumdf
+            def calibslice(lvol):
+                volj = volji * lvol
+                print(lvol)
+                R[i] = R[i-1] *dffor[i-1]/dfdom[i-1]*np.exp(-volj*volj*t/2 + paths[i-1]*volj*math.sqrt(t))
+                cdf0 = vu.cdf(BS.mccdf(R[i]))
+                return  np.linalg.norm(cdf0.probinterpinv(cumppt) - cdf1.probinterpinv(cumppt))
             # do drift adjustment
+            calibslice(1.0)
+            #driftadj = np.mean(R[i])/fwd
+            #R[i] = R[i]/driftadj
+            if volcalib is not None:
+                x = np.linspace(0.15,0.85,20)
+                cdf0 = vu.cdf(BS.mccdf(R[i]))
+                p = cdf0.getcumprob(R[i])
+                adjRi  = cdf1.getstrike(p)
+                plt.plot(cdf0.getstrike(x),x, label = "original")
+                plt.plot(cdf1.getstrike(x),x, label = "target")
+                plt.title("generated cdf vs target")
+                plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
+  
+                plt.show()
+                R[i] = adjRi
             driftadj = np.mean(R[i])/fwd
             R[i] = R[i]/driftadj
-            if volcalib is not None:
-                cdf0 = vu.cdf(BS.mccdf(R[i]))
-                cdf1 = volcalib[i-1].cumdf
-                p = cdf0.probinterp(R[i])
-                adjRi  = cdf1.probinterpinv(p)
-                R[i] = adjRi
-                
+    
         self.paths = R
     
     def optprice(self,strike, callput, node = -1):
@@ -115,11 +128,11 @@ def main():
     rfor = irprocess.OrUhl(forts,meanrev, sigma, paths[3], T)    
 
 
-    atm = intp.interp1d([0.5,5],[0.135, 0.21])
-    rr25 = intp.interp1d([0.5,5],[-0.035, -0.07])
-    rr10 = intp.interp1d([0.5,5],[-0.06, -0.135])
+    atm = intp.interp1d([0.5,5],[0.135, 0.195])
+    rr25 = intp.interp1d([0.5,5],[-0.035, -0.075])
+    rr10 = intp.interp1d([0.5,5],[-0.08, -0.125])
     fly25 = intp.interp1d([0.5,5],[0.005, 0.0125])
-    fly10 = intp.interp1d([0.5,5],[0.02, 0.04])
+    fly10 = intp.interp1d([0.5,5],[0.02, 0.06])
     fwd = spot
     volcalib = []    
     for i in range(0,N):
@@ -133,7 +146,7 @@ def main():
     #Stoch vol process
     meanrev = np.ones([N])*0.1
     vvol = np.ones([N])*0.2
-    basevol = np.ones([N+1])*0.145
+    basevol = np.ones([N+1])*0.135
     vol = volprocess.Logoruhl(basevol, meanrev, vvol, paths[1], T)
     sigma = vol.paths
     asset = Stochvol(spot, sigma, paths[0], T, rdom.paths, rfor.paths, volcalib )
