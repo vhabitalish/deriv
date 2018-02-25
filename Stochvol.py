@@ -43,21 +43,27 @@ class Stochvol:
 
         for i in range(1,self.timeslices + 1):
             print("calib timeslice",i)
-            fwd = np.mean(R[i-1])/(1+t*np.mean(rfor[i-1]))*(1+t*np.mean(rdom[i-1]))
+            dfr = (1+t*np.mean(rfor[i-1]))/(1+t*np.mean(rdom[i-1]))
+            fwd = np.mean(R[i-1])/dfr
             volji = np.maximum(0,sigma[i-1])
             cdf1 = volcalib[i-1].cumdf
+            calibki = cdf1.getstrike(cumppt)*dfr
             def calibslice(lvol):
-                volj = volji * lvol
+                interped = intp.interp1d(calibki,lvol, kind =1, fill_value= "extrapolate" )
+                lvolj = interped(R[i-1])
+                volj = volji * lvolj
                 print(lvol)
                 R[i] = R[i-1] *dffor[i-1]/dfdom[i-1]*np.exp(-volj*volj*t/2 + paths[i-1]*volj*math.sqrt(t))
                 cdf0 = vu.cdf(BS.mccdf(R[i]))
                 return  np.linalg.norm(cdf0.probinterpinv(cumppt) - cdf1.probinterpinv(cumppt))
             # do drift adjustment
-            calibslice(1.0)
+            res = opt.minimize(calibslice,[1.0,1.0,1.0], method="Nelder-Mead",options={"maxiter":8})
+            print(res.message, res.x)
+            calibslice(res.x)
             #driftadj = np.mean(R[i])/fwd
             #R[i] = R[i]/driftadj
             if volcalib is not None:
-                x = np.linspace(0.15,0.85,20)
+                x = np.linspace(0.05,0.95,20)
                 cdf0 = vu.cdf(BS.mccdf(R[i]))
                 p = cdf0.getcumprob(R[i])
                 adjRi  = cdf1.getstrike(p)
@@ -67,7 +73,7 @@ class Stochvol:
                 plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
   
                 plt.show()
-                R[i] = adjRi
+                #R[i] = adjRi
             driftadj = np.mean(R[i])/fwd
             R[i] = R[i]/driftadj
     
