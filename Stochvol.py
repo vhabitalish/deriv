@@ -39,11 +39,15 @@ class Stochvol:
         for i in range(1,self.timeslices + 1):
             print("calib timeslice",i)
             fwd = np.mean(R[i-1])/(1+t*np.mean(rfor[i-1]))*(1+t*np.mean(rdom[i-1]))
+            volj = np.maximum(0,sigma[i-1])
+            R[i] = R[i-1] *dffor[i-1]/dfdom[i-1]*np.exp(-volj*volj*t/2 + paths[i-1]*volj*math.sqrt(t))
+            '''
             for j in range(0, self.numpaths):
                 vol = np.maximum(0,sigma[i-1, j] )
                 vol = vol
                 R[i, j] = (R[i-1, j]*dffor[i-1,j]/dfdom[i-1,j]
                     * math.exp(-0.5*vol*vol*t + paths[i-1,j] * vol * math.sqrt(t)))
+            '''
             # do drift adjustment
             driftadj = np.mean(R[i])/fwd
             R[i] = R[i]/driftadj
