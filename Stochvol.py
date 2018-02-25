@@ -39,7 +39,7 @@ class Stochvol:
         dffor = 1.0/(1+rfor*t)
         dfdom = 1.0/(1+rdom*t)
         R[0, :] = spot
-        cumppt = np.array([0.25,0.5,0.75])
+        cumppt = np.array([0.1,0.25,0.5,0.75,0.9])
 
         for i in range(1,self.timeslices + 1):
             print("calib timeslice",i)
@@ -48,16 +48,22 @@ class Stochvol:
             volji = np.maximum(0,sigma[i-1])
             cdf1 = volcalib[i-1].cumdf
             calibki = cdf1.getstrike(cumppt)*dfr
+            volcalibi = volcalib[i-1].getvolforstrike(calibki)
             def calibslice(lvol):
                 interped = intp.interp1d(calibki,lvol, kind =1, fill_value= "extrapolate" )
                 lvolj = interped(R[i-1])
                 volj = volji * lvolj
                 print(lvol)
                 R[i] = R[i-1] *dffor[i-1]/dfdom[i-1]*np.exp(-volj*volj*t/2 + paths[i-1]*volj*math.sqrt(t))
+                driftadj = np.mean(R[i])/fwd
+                R[i] = R[i]/driftadj
+                volsim = [BS.volfromsim(R[i],fwd,strk,i*t) for strk in calibki]
+                return np.linalg.norm(volsim - volcalibi)
+
                 cdf0 = vu.cdf(BS.mccdf(R[i]))
                 return  np.linalg.norm(cdf0.probinterpinv(cumppt) - cdf1.probinterpinv(cumppt))
             # do drift adjustment
-            res = opt.minimize(calibslice,[1.0,1.0,1.0], method="Nelder-Mead",options={"maxiter":8})
+            res = opt.minimize(calibslice,[1.0,1.0,1.0,1.0,1.0], method="Nelder-Mead",options={"maxiter":50})
             print(res.message, res.x)
             calibslice(res.x)
             #driftadj = np.mean(R[i])/fwd
