@@ -231,17 +231,17 @@ def main():
 def kiko(asset, vol, rdom, rfor, T):
     timesteps = asset.shape[0] - 1
     numpaths = asset.shape[1]
-    alpha = timesteps/T
+    alpha = T/timesteps
     fxinit = asset[0,0]
     # cpn  if fx > cpnk else 0
-    cpn = 0.1
+    cpn = 0.1*0
     cpnk = fxinit - 5
 
     # dom libor margin
     lmar = 0.001
 
     #payatend
-    redk = fxinit - 10
+    redk = fxinit - 5
     kok = fxinit + 2
     payoff = np.zeros((timesteps+1,numpaths))
     ko = np.zeros((timesteps + 1,numpaths))
@@ -260,5 +260,5 @@ def kiko(asset, vol, rdom, rfor, T):
 
 
 if __name__ == "__main__":
-    asset, vol, dom, fgn, volcalib = main()
+    #asset, vol, dom, fgn, volcalib = main()
     payoff = kiko(asset.paths,vol.paths,dom.paths,fgn.paths, 5.0)
