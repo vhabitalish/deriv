@@ -16,21 +16,22 @@ class OrUhl:
         meanrev : mean reversion shape (timeslice,)
         sigma   : vol shape (timeslice,)
         paths : Weiner process paths shape (timeslice,numpaths)
-        time : total time covered by N time steps
-    """
+        time : time  for i th slice  shape (timeslice +1)
+        """
     def __init__(self,initts, meanrev, sigma, paths, time):
         self.meanrev = meanrev
         self.sigma = sigma
         self.numpaths = paths.shape[1]
         self.timeslices = paths.shape[0]
         self.time = time
-        self.initts = initts  
+        self.initts = initts
+        dti = self.time[1:] - self.time[:-1]
         R = np.zeros([self.timeslices + 1, self.numpaths])
-        t = self.time / self.timeslices
         R[0, :] = 0
         for i in range(1,self.timeslices + 1):
             alpha = self.meanrev[i-1]
             sigma = self.sigma[i-1]
+            t = dti[i-1]
             R[i] = (R[i-1]*math.exp(-alpha*t)
                     + paths[i-1] * sigma * math.sqrt((1 - 
                     math.exp(-2*alpha*t))/(2*alpha)))           
@@ -44,28 +45,39 @@ class OrUhl:
     
     def fwdsonpath(self,i,j,k):
         r = self.paths[i,j] *np.ones([self.timeslices - i])
-        t = self.time / self.timeslices
         for p in range(i+1,self.timeslices):
+            t = self.time[p+1] - self.time[p]
             alpha = self.meanrev[p-1]
             r[p-i] = (self.initts[p-i] 
                     + (r[p-i-1] - self.initts[p-i-1])*math.exp(-alpha*t))
         return r[:k] 
 
-def swap(R,K,t=1):
+def swap(R,K,ti = None):
     n = R.shape[0]
     df = 1
     pv = 0
+    if ti is None:
+        dti = np.ones(n)
+    else:
+        dti = ti[1:] - ti[:-1]
     for i in range(0,n):
+        t = dti[i]
         df = df * 1/(1+R[i]*t)
         pv = pv + (R[i]-K)*t*df
     return pv
 
-def parswap(R, t=1):
+def parswap(R, ti = None):
     n = R.shape[0]
     df = 1
     pv = 0
     level = 0
+    if ti is None:
+        dti = np.ones(n)
+    else:
+        dti = ti[1:] - ti[:-1]
+
     for i in range(0,n):
+        t = dti[i]
         df = df * 1/(1+R[i]*t)
         pv = pv + (R[i]*t)*df
         level = level + df
@@ -79,7 +91,7 @@ def ex3():
     T = 20.0
     t= T/N
     np.random.seed(100910)
-    
+    TI = np.linspace(0,T,N+1)
   
     #R0term = np.concatenate((np.linspace(0.071,0.095,10), np.ones([N-10+1])*0.095))
     #R00 = np.zeros(N+1)
@@ -91,12 +103,12 @@ def ex3():
     initts0 = np.ones(N+1) * 0.12 
     meanrev0 = du.funa(-2.5, 0, 0.5, N)
     sigma0 = du.funa(0.0007, 0, 2, N)
-    lgmm0 = OrUhl(initts0, meanrev0, sigma0, paths[0], T)
+    lgmm0 = OrUhl(initts0, meanrev0, sigma0, paths[0], TI)
     
     initts1 = np.ones(N+1) * 0.0001
     meanrev1 = du.funa(0.01, 0.01, 0.5, N)
     sigma1 = du.funa(0.005, 0.01, 1.0, N)
-    lgmm1 = OrUhl(initts1, meanrev1, sigma1, paths[0], T)
+    lgmm1 = OrUhl(initts1, meanrev1, sigma1, paths[0], TI)
     
     
   
@@ -116,7 +128,7 @@ def ex3():
             for j in range(0, numpaths):    
                 swappath[j] = parswap(
                         lgmm0.fwdsonpath(expiry,j,term)
-                        + lgmm1.fwdsonpath(expiry,j,term),t)[0]
+                        + lgmm1.fwdsonpath(expiry,j,term),TI)[0]
             print("{:03.2f}".format(np.std(swappath)/math.sqrt(expiry*t)*100), end="  ")
         print()
     

@@ -15,7 +15,7 @@ class Logoruhl:
         meanrev : mean reversion shape (timeslice,)
         sigma   : vol shape (timeslice,)
         paths : Weiner process paths shape (timeslice,numpaths)
-        time : total time covered by N time steps
+        time : time  for i th slice  shape (timeslice +1)
     """
     def __init__(self, initts, meanrev, sigma, paths, time):
         self.meanrev = meanrev
@@ -24,9 +24,10 @@ class Logoruhl:
         self.timeslices = paths.shape[0]
         self.time = time     
         R = np.zeros([self.timeslices + 1, self.numpaths])
-        t = self.time / self.timeslices
+        dti = self.time[1:] - self.time[:-1]
         R[0, :] = math.log(initts[0])
         for i in range(1,self.timeslices + 1):
+            t = dti[i-1]
             alpha = self.meanrev[i-1]
             sigma = self.sigma[i-1]
             vol = sigma * math.sqrt((1 -math.exp(-2*alpha*t))/(2*alpha))
@@ -54,8 +55,9 @@ def ex3():
     meanrev = np.ones([N])*0.0001
     sigma = np.ones([N])*0.1
     T = 20
+    TI = np.linspace(0,T,N+1)
     paths = corpath.getpaths(np.array([[1]]), numpaths, N)
-    lgmm = Logoruhl(initts, meanrev, sigma, paths[0], T)
+    lgmm = Logoruhl(initts, meanrev, sigma, paths[0], TI)
     R = lgmm.paths    
     numpaths=R.shape[1]
 

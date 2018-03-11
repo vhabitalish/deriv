@@ -21,7 +21,7 @@ class Stochvol:
         Add a constant process to add non zero fwds
         sigma   : vol shape (timeslice, numpaths)
         paths : Weiner process paths shape (timeslice,numpaths)
-        time : total time covered by N time steps
+        time : time for each slice shape ( timesslice + 1 )
         rdom : set of rates (df = 1/(1+rT) same dim as paths
         rfor : set of for rates same dim as paths
     """
@@ -32,16 +32,17 @@ class Stochvol:
         self.sigma = sigma
         self.time = time
         R = np.zeros([self.timeslices + 1, self.numpaths])
-        t = self.time / self.timeslices
+        dti = self.time[1:] - self.time[:-1]
         if rdom is None:
             rdom = np.ones((self.timeslices, self.numpaths)) * 0.05
             rfor = np.ones((self.timeslices, self.numpaths)) * 0.05
-        dffor = 1.0/(1+rfor*t)
-        dfdom = 1.0/(1+rdom*t)
+        dffor = 1.0/(1+rfor[:-1]*dti.reshape((-1,1)))
+        dfdom = 1.0/(1+rdom[:-1]*dti.reshape((-1,1)))
         R[0, :] = spot
         cumppt = np.linspace(0.25,0.75,3)
         for i in range(1,self.timeslices + 1):
             print("calib timeslice",i)
+            t = dti[i-1]
             dfr = (1+t*np.mean(rfor[i-1]))/(1+t*np.mean(rdom[i-1]))
             fwd = np.mean(R[i-1])/dfr
             volji = np.maximum(0,sigma[i-1])
@@ -120,6 +121,7 @@ def main():
     T = 5.0
     t = T/N
     spot = 29.00
+    TI = np.linspace(0,T,N+1)
 
     # 0 :fx, 1:fxvol, 2:dom, 3:for
     rho01 = 0
@@ -141,13 +143,13 @@ def main():
     domts = np.ones(N+1) * 0.001
     meanrev = np.ones([N])*0.01
     sigma = np.ones([N])*0.005
-    rdom = irprocess.OrUhl(domts,meanrev, sigma, paths[2], T)
+    rdom = irprocess.OrUhl(domts,meanrev, sigma, paths[2], TI)
 
     #for
     forts = du.funa(0.135,0.115,1.0,N+1)
     meanrev = np.ones([N])*0.05
     sigma = np.ones([N])*0.015
-    rfor = irprocess.OrUhl(forts,meanrev, sigma, paths[3], T)
+    rfor = irprocess.OrUhl(forts,meanrev, sigma, paths[3], TI)
 
 
     atm = intp.interp1d([0.5,5],[0.135, 0.195])
@@ -166,12 +168,12 @@ def main():
         volcalib.append(vu.logvolslice(volinterp, fwd, ti))
 
     #Stoch vol process
-    meanrev = np.ones([N])*0.1
-    vvol = np.ones([N])*0.2
+    meanrev = np.ones([N])*0.2
+    vvol = np.ones([N])*0.05
     basevol = np.ones([N+1])*0.135
-    vol = volprocess.Logoruhl(basevol, meanrev, vvol, paths[1], T)
+    vol = volprocess.Logoruhl(basevol, meanrev, vvol, paths[1], TI)
     sigma = vol.paths
-    asset = Stochvol(spot, sigma, paths[0], T, rdom.paths, rfor.paths, volcalib )
+    asset = Stochvol(spot, sigma, paths[0], TI, rdom.paths, rfor.paths, volcalib )
     #plot 10 random sample paths
     R = asset.paths
 
