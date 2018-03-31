@@ -39,7 +39,8 @@ class Stochvol:
         dffor = 1.0/(1+rfor[:-1]*dti.reshape((-1,1)))
         dfdom = 1.0/(1+rdom[:-1]*dti.reshape((-1,1)))
         R[0, :] = spot
-        cumppt = np.linspace(0.25,0.75,3)
+        cumppt = np.linspace(0.1,0.9,5)
+        bounds = [(0,None),(0,None),(0,None),(0,None),(0,None)]
         for i in range(1,self.timeslices + 1):
             print("calib timeslice",i)
             t = dti[i-1]
@@ -59,7 +60,9 @@ class Stochvol:
                 driftadj = np.mean(R[i])/fwd
                 R[i] = R[i]/driftadj
                 volsim = [BS.volfromsim(R[i],fwd,strk,i*t) for strk in calibki]
-                err =  np.linalg.norm(np.log(volsim) - np.log(volcalibi))
+                #err =  np.linalg.norm(np.log(volsim) - np.log(volcalibi))
+
+                err =  np.linalg.norm(volsim - volcalibi)
                 #if i == 1 :
                  #   print(err, volsim, volcalibi)
                 return err
@@ -69,27 +72,32 @@ class Stochvol:
                 return err*err
             # do drift adjustment
             #res = opt.minimize(calibslice,np.ones(cumppt.shape[0]), method="Nelder-Mead",options={"maxiter":100})
-            res = opt.minimize(calibslice,np.ones(cumppt.shape[0]), method="Nelder-Mead",tol=1e-1)
-            
+            #res = opt.minimize(calibslice,np.ones(cumppt.shape[0]), method="Nelder-Mead",tol=1e-2)
+            res = opt.minimize(calibslice,np.ones(cumppt.shape[0]), bounds = bounds)
+            print(res.x)
             #print(res.message, res.x)
             calibslice(res.x)
             #driftadj = np.mean(R[i])/fwd
             #R[i] = R[i]/driftadj
             if volcalib is not None:
+                
                 x = np.linspace(0.05,0.95,20)
                 cdf0 = vu.cdf(BS.mccdf(R[i]))
                 p = cdf0.getcumprob(R[i])
                 adjRi  = cdf1.getstrike(p)
-                R[i] = adjRi
-                #cdf2 = vu.cdf(BS.mccdf(R[i]))
-                #plt.plot(cdf0.getstrike(x),x, label = "original")
-                #plt.plot(cdf1.getstrike(x),x, label = "target")
+                if i == 1 and True :
+                    R[i] = adjRi
+                
+                pass
+                cdf2 = vu.cdf(BS.mccdf(R[i]))
+                plt.plot(cdf0.getstrike(x),x, label = "original")
+                plt.plot(cdf1.getstrike(x),x, label = "target")
                 #plt.plot(cdf2.getstrike(x),x, label = "adjusted")
                 
-                #plt.title("generated cdf vs target")
-                #plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
+                plt.title("generated cdf vs target")
+                plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
 
-                #plt.show()
+                plt.show()
                 
             driftadj = np.mean(R[i])/fwd
             R[i] = R[i]/driftadj
@@ -116,20 +124,20 @@ def main():
 
     #np.random.seed(100910)
     numpaths = 20000
-    N = 10
+    N = 20
     rho = 0.75
     T = 5.0
     t = T/N
-    spot = 29.00
+    spot = 26.83
     TI = np.linspace(0,T,N+1)
 
     # 0 :fx, 1:fxvol, 2:dom, 3:for
     rho01 = 0
-    rho02 = -0.35
-    rho03 = -0.7
+    rho02 = 0.002
+    rho03 = -0.27
     rho12 = 0
     rho13 = 0
-    rho23 = 0
+    rho23 = 0.16
 
     cov = np.array([[1, rho01, rho02, rho03],
                     [rho01, 1, rho12, rho13],
@@ -148,15 +156,15 @@ def main():
     #for
     forts = du.funa(0.135,0.115,1.0,N+1)
     meanrev = np.ones([N])*0.05
-    sigma = np.ones([N])*0.015
+    sigma = np.ones([N])*0.020
     rfor = irprocess.OrUhl(forts,meanrev, sigma, paths[3], TI)
 
 
-    atm = intp.interp1d([0.5,5],[0.135, 0.195])
-    rr25 = intp.interp1d([0.5,5],[-0.035, -0.075])
-    rr10 = intp.interp1d([0.5,5],[-0.08, -0.125])
-    fly25 = intp.interp1d([0.5,5],[0.005, 0.0125])
-    fly10 = intp.interp1d([0.5,5],[0.02, 0.06])
+    atm = intp.interp1d([0.25,5],[0.128, 0.2095])
+    rr25 = intp.interp1d([0.25,5],[-0.035, -0.079])
+    rr10 = intp.interp1d([0.25,5],[-0.0677, -0.1628])
+    fly25 = intp.interp1d([0.25,5],[0.009, 0.0154])
+    fly10 = intp.interp1d([0.25,5],[0.0255, 0.0514])
     fwd = spot
     volcalib = []
     for i in range(0,N):
@@ -179,22 +187,22 @@ def main():
 
     a=np.random.permutation(R.shape[1])
     for i in range(0,50):
-        plt.plot(rdom.paths[:,a[i]])
+        plt.plot(TI,rdom.paths[:,a[i]])
     plt.title("Dom Rate Process")
     plt.show()
 
     for i in range(0,50):
-        plt.plot(rfor.paths[:,a[i]])
+        plt.plot(TI,rfor.paths[:,a[i]])
     plt.title("For Rate Process")
     plt.show()
 
     for i in range(0,50):
-        plt.plot(vol.paths[:,a[i]])
+        plt.plot(TI,vol.paths[:,a[i]])
     plt.title("Vol Process")
     plt.show()
 
     for i in range(0,50):
-        plt.plot(R[:,a[i]])
+        plt.plot(TI,R[:,a[i]])
     plt.title("Fx Process")
     plt.show()
 
@@ -208,26 +216,29 @@ def main():
         fxfwdspaths[i] = np.mean(R[i])
         fxvolpaths[i] = BS.blackimply(fxfwdspaths[i],fxfwdspaths[i],t*i,1,asset.optprice(fxfwdspaths[i],1,i))
 
-    plt.plot(fxfwds)
-    plt.plot(fxfwdspaths)
+    plt.plot(TI,fxfwds)
+    plt.plot(TI,fxfwdspaths)
     plt.title("Fxfwds: fwds and on paths")
     plt.show()
 
-    plt.plot(fxvolpaths)
+    plt.plot(TI,fxvolpaths)
     plt.title("Vol evolving with time")
     plt.show()
 
     fwd = fxfwds[-1]
     std = fxvolpaths[-1] * fwd
-    x = np.linspace(fwd - 1.5 * std, fwd + 1.5 * std, 15)
+    x = np.linspace(fwd - 3 * std, fwd + 3 * std, 15)
     y = [ BS.blackimply(fwd,stri,T,-1,asset.optprice(stri,-1)) for stri in x]
-    plt.plot(x,y)
+    plt.plot(x,y, label="from mc")
+    y1 = volcalib[-1].strikevolinter(x)
+    plt.plot(x,y1, label="original")
+    plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
     plt.title("Terminal Smile")
     plt.show()
     print(BS.blackimply(fwd, fwd +std, T, 1,(asset.optprice(fwd+std,1))))
     print(BS.blackimply(fwd, fwd, T, 1,(asset.optprice(fwd,1))))
     print(BS.blackimply(fwd, fwd - std, T, -1,(asset.optprice(fwd-std,-1))))
-    return asset, vol, rdom, rfor, volcalib
+    return asset, vol, rdom, rfor, volcalib, paths
 
 
 def kiko(asset, vol, rdom, rfor, T):
@@ -263,5 +274,5 @@ def kiko(asset, vol, rdom, rfor, T):
 
 if __name__ == "__main__":
     
-    asset, vol, dom, fgn, volcalib = main()
+    asset, vol, dom, fgn, volcalib, paths = main()
     payoff = kiko(asset.paths,vol.paths,dom.paths,fgn.paths, 5.0)

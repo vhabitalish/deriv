@@ -60,15 +60,15 @@ class logvolslice:
         c = self.getvolforstrike((self.deltastrike(delta,1)))
         p = self.getvolforstrike((self.deltastrike(delta,-1)))
         fv = self.getvolforstrike(self.fwd)
-        return c+p-2*fv
+        return c/2+p/2-fv
   
     
     
 class cdf:
     def __init__(self,strikeprob):
         self.strikeprob = strikeprob
-        self.probinterp = interpolate.interp1d(np.log(strikeprob[:,0]),strikeprob[:,1], kind = 1, fill_value = "extrapolate")
-        self.probinterpinv = interpolate.interp1d(strikeprob[:,1],np.log(strikeprob[:,0]), kind = 1, fill_value = "extrapolate")
+        self.probinterp = interpolate.interp1d(np.log(strikeprob[:,0]),strikeprob[:,1], kind = 2, fill_value = "extrapolate")
+        self.probinterpinv = interpolate.interp1d(strikeprob[:,1],np.log(strikeprob[:,0]), kind = 2, fill_value = "extrapolate")
     def getcumprob(self,strike):
         '''
         if strike > self.strikeprob[-1,0]:
@@ -120,9 +120,9 @@ def tracecallback(xk):
     print(".",xk)
     
 def fivepointsmile(fwd, atm, rr25, fly25, rr10, fly10, mat):
-    c25 = 0.5*(rr25 + fly25 + 2*atm)
+    c25 = 0.5*(rr25 + 2*fly25 + 2*atm)
     p25 = c25 - rr25
-    c10 = 0.5*(rr10 + fly10 + 2*atm)
+    c10 = 0.5*(rr10 + 2*fly10 + 2*atm)
     p10 = c10 - rr10
     kc25 = BS.blackstrikefordelta(c25, fwd, mat, 1, 0.25)
     kc10 = BS.blackstrikefordelta(c10, fwd, mat, 1, 0.1)
@@ -146,7 +146,7 @@ def fivepointsmile(fwd, atm, rr25, fly25, rr10, fly10, mat):
 def strikevolinterp(strikevol):
     points = 1000
     strikes = np.linspace(strikevol[0,0],strikevol[-1,0],points)
-    interfn = interpolate.interp1d(strikevol[:,0], strikevol[:,1], fill_value = "extrapolate",kind = 3)
+    interfn = interpolate.interp1d(strikevol[:,0], strikevol[:,1], fill_value = "extrapolate",kind = 2)
     interpstrikesmile = np.zeros([points,2])
     for i in range(0,points):
         interpstrikesmile[i,0] = strikes[i]
@@ -242,7 +242,7 @@ def testquadsmile():
 def main():
     fwd = 15
     T = 5
-    voluninterp = fivepointsmile(fwd,0.20,-0.07,0.01,-0.11,0.065,T)
+    voluninterp = fivepointsmile(fwd,0.21,-0.079,0.0154,-0.1628,0.0515,T)
     volinterp = strikevolinterp(voluninterp)
     #volinterp = fivepointtostrikevol(fwd,0.20,-0.06,0.01,-0.11,0.05,T)
     plt.plot(voluninterp[:,0], voluninterp[:,1])
