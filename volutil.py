@@ -67,8 +67,8 @@ class logvolslice:
 class cdf:
     def __init__(self,strikeprob):
         self.strikeprob = strikeprob
-        self.probinterp = interpolate.interp1d(np.log(strikeprob[:,0]),strikeprob[:,1], kind = 2, fill_value = "extrapolate")
-        self.probinterpinv = interpolate.interp1d(strikeprob[:,1],np.log(strikeprob[:,0]), kind = 2, fill_value = "extrapolate")
+        self.probinterp = interpolate.interp1d(np.log(strikeprob[:,0]),strikeprob[:,1], kind = 3, fill_value = "extrapolate")
+        self.probinterpinv = interpolate.interp1d(strikeprob[:,1],np.log(strikeprob[:,0]), kind = 3, fill_value = "extrapolate")
     def getcumprob(self,strike):
         '''
         if strike > self.strikeprob[-1,0]:
@@ -260,8 +260,17 @@ def main():
     print(vol1.deltastrike(0.25,1), vol1.deltastrike(0.25,-1))
     print(vol1.getrr(0.25), vol1.getfly(0.25))
     print(vol1.deltastrike(0.1,1), vol1.deltastrike(0.1,-1))
-    
     print(vol1.getrr(0.1), vol1.getfly(0.1))
+    x = np.linspace(0.05,0.95,10)
+    strikes  = vol1.cumdf.getstrike(x)
+    plt.plot(strikes,vol1.getvolforstrike(strikes), label = "from slice")
+    plt.plot(strikes,vol1.cumdf.getstrikevol(strikes,T)[:,1], label = "from dist")
+    plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
+
+    plt.show()
+    
+    
+    print(vol1.cumdf.strikeprob)
     
     return vol1
 

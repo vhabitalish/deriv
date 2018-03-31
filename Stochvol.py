@@ -73,31 +73,39 @@ class Stochvol:
             # do drift adjustment
             #res = opt.minimize(calibslice,np.ones(cumppt.shape[0]), method="Nelder-Mead",options={"maxiter":100})
             #res = opt.minimize(calibslice,np.ones(cumppt.shape[0]), method="Nelder-Mead",tol=1e-2)
-            res = opt.minimize(calibslice,np.ones(cumppt.shape[0]), bounds = bounds)
-            print(res.x)
+            #res = opt.minimize(calibslice,np.ones(cumppt.shape[0]), bounds = bounds)
+            #print(res.x)
             #print(res.message, res.x)
-            calibslice(res.x)
+            #calibslice(res.x)
             #driftadj = np.mean(R[i])/fwd
             #R[i] = R[i]/driftadj
             if volcalib is not None:
+                res = opt.minimize(calibslice,np.ones(cumppt.shape[0]), bounds = bounds)
+                print(res.x)
+                #print(res.message, res.x)
+                calibslice(res.x)
+          
                 
                 x = np.linspace(0.05,0.95,20)
                 cdf0 = vu.cdf(BS.mccdf(R[i]))
                 p = cdf0.getcumprob(R[i])
                 adjRi  = cdf1.getstrike(p)
-                if i == 1 and True :
+                if i == 1 or True :
                     R[i] = adjRi
                 
                 pass
                 cdf2 = vu.cdf(BS.mccdf(R[i]))
-                plt.plot(cdf0.getstrike(x),x, label = "original")
+                #plt.plot(cdf0.getstrike(x),x, label = "original")
                 plt.plot(cdf1.getstrike(x),x, label = "target")
-                #plt.plot(cdf2.getstrike(x),x, label = "adjusted")
+                plt.plot(cdf2.getstrike(x),x, label = "adjusted")
                 
                 plt.title("generated cdf vs target")
                 plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
 
                 plt.show()
+                
+            else:
+                calibslice(np.ones(cumppt.shape[0]))
                 
             driftadj = np.mean(R[i])/fwd
             R[i] = R[i]/driftadj
