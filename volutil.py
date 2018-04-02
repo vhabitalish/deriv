@@ -22,7 +22,7 @@ class logvolslice:
         self.strikevol = strikevol
         self.fwd = fwd
         self.mat = mat
-        self.strikevolinter = interpolate.interp1d(strikevol[:,0], strikevol[:,1], kind = 1, fill_value = "extrapolate")
+        self.strikevolinter = interpolate.interp1d(strikevol[:,0], strikevol[:,1], kind = 2, fill_value = "extrapolate")
         nofstrikes = self.strikevol.shape[0]
         strprob = np.ones((nofstrikes-1,2))*0.5
         for i in range(0,nofstrikes-1):

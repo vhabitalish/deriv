@@ -25,7 +25,7 @@ class Stochvol:
         rdom : set of rates (df = 1/(1+rT) same dim as paths
         rfor : set of for rates same dim as paths
     """
-    def __init__(self, spot, sigma, paths, time, rdom = None, rfor = None, volcalib = None ):
+    def __init__(self, spot, sigma, paths, time, rdom = None, rfor = None, volcalib = None, marginadjust = False ):
         self.sigma = sigma
         self.numpaths = paths.shape[1]
         self.timeslices = paths.shape[0]
@@ -90,10 +90,9 @@ class Stochvol:
                 cdf0 = vu.cdf(BS.mccdf(R[i]))
                 p = cdf0.getcumprob(R[i])
                 adjRi  = cdf1.getstrike(p)
-                if i == 1 or True :
+                if i == 1 or marginadjust :
                     R[i] = adjRi
-                
-                pass
+                    pass
                 cdf2 = vu.cdf(BS.mccdf(R[i]))
                 #plt.plot(cdf0.getstrike(x),x, label = "original")
                 plt.plot(cdf1.getstrike(x),x, label = "target")
