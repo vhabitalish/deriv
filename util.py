@@ -9,7 +9,7 @@ def quad(x,a,b,c):
     return a*x*x+b*x+c
 
 def main():
-    plt.plot(funa(0.5,0.1,0.5,20))
+    plt.plot(funa(20.5,14.5,0.25,20))
     plt.show()
     x = np.linspace(-4,4,40)
     y = [ quad(xi,0.1,-.5,1) for xi in x]

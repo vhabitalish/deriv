@@ -131,11 +131,11 @@ def main():
 
     #np.random.seed(100910)
     numpaths = 20000
-    N = 20
+    N = 5
     rho = 0.75
     T = 5.0
     t = T/N
-    spot = 26.83
+    spot = 18.95
     TI = np.linspace(0,T,N+1)
 
     # 0 :fx, 1:fxvol, 2:dom, 3:for
@@ -157,21 +157,21 @@ def main():
     #dom
     domts = np.ones(N+1) * 0.001
     meanrev = np.ones([N])*0.01
-    sigma = np.ones([N])*0.005
+    sigma = np.ones([N])*0.005*20
     rdom = irprocess.OrUhl(domts,meanrev, sigma, paths[2], TI)
 
     #for
-    forts = du.funa(0.135,0.115,1.0,N+1)
+    forts = du.funa(0.205,0.15,0.25,N+1)
     meanrev = np.ones([N])*0.05
     sigma = np.ones([N])*0.020
     rfor = irprocess.OrUhl(forts,meanrev, sigma, paths[3], TI)
 
 
-    atm = intp.interp1d([0.25,5],[0.128, 0.2095])
-    rr25 = intp.interp1d([0.25,5],[-0.035, -0.079])
-    rr10 = intp.interp1d([0.25,5],[-0.0677, -0.1628])
+    atm = intp.interp1d([0.25,5],[0.208, 0.28])
+    rr25 = intp.interp1d([0.25,5],[-0.06, -0.1025])
+    rr10 = intp.interp1d([0.25,5],[-0.12, -0.2])
     fly25 = intp.interp1d([0.25,5],[0.009, 0.0154])
-    fly10 = intp.interp1d([0.25,5],[0.0255, 0.0514])
+    fly10 = intp.interp1d([0.25,5],[0.045, 0.075])
     fwd = spot
     volcalib = []
     for i in range(0,N):
@@ -276,10 +276,19 @@ def kiko(asset, vol, rdom, rfor, T):
     return payoff
 
 
-
+def dbnt(asset,lo,hi):
+    #timesteps = asset.shape[0] - 1
+    numpaths = asset.shape[1]
+    maxasset = np.max(asset,axis=0)
+    minasset = np.min(asset,axis=0)
+    return np.sum(np.ones(numpaths)[np.logical_and(maxasset < hi ,minasset >lo)])/ numpaths 
+    
+    
 
 
 if __name__ == "__main__":
     
     asset, vol, dom, fgn, volcalib, paths = main()
-    payoff = kiko(asset.paths,vol.paths,dom.paths,fgn.paths, 5.0)
+    #payoff = kiko(asset.paths,vol.paths,dom.paths,fgn.paths, 5.0)
+    print(10,25,dbnt(asset.paths,10,25))
+    print(3,30,dbnt(asset.paths,3,30))
