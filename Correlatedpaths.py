@@ -32,15 +32,19 @@ def threeasset(fwd0,vol0,fwd1,vol1,fwd2,vol2,T,rho01,rho02,rho12):
     asset[2] = fwd2 *np.exp(-0.5*vol2**2*T + vol2*math.sqrt(T)*X[2])
     return asset
     
-    """ Simple test function """
-    cor = np.array([[1, 0.5], [0.5, 1]])
+def wof(sim,k0,k1,k2,c0,c1,c2):
+    nopaths=sim.shape[1]
+    if c0 :                
         p0 = np.maximum(sim[0]/k0-1,0)
     else :
         p0 = np.maximum(0,1-sim[0]/k0)
     if c1 :
-def wof(sim,k0,k1,k2,c0,c1,c2):
-    nopaths=sim.shape[1]
-    if c0 :
+        p1 = np.maximum(sim[1]/k1-1,0)
+    else :
+        p1 = np.maximum(0,1-sim[1]/k1)
+    if c2 :
+        p2 = np.maximum(sim[2]/k2-1,0)
+    else :
         p2 = np.maximum(0,sim[2]/k2-1)
     print(np.sum(p0)/nopaths,np.sum(p1)/nopaths,np.sum(p2)/nopaths)
     wof=np.minimum(np.minimum(p0,p1),p2)
@@ -50,12 +54,8 @@ def wof(sim,k0,k1,k2,c0,c1,c2):
 
 
 def main():
-        p1 = np.maximum(sim[1]/k1-1,0)
-    else :
-        p1 = np.maximum(0,1-sim[1]/k1)
-    if c2 :
-        p2 = np.maximum(sim[2]/k2-1,0)
-    else :
+    """ Simple test function """
+    cor = np.array([[1, 0.5], [0.5, 1]])
     numpaths = 10000
     timeslice = 20
     X = getpaths(cor, numpaths, timeslice)
