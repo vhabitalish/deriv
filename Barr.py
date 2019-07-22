@@ -39,15 +39,14 @@ def nohitprob(sim, vol, time, barr, barrud):
     return np.sum(nohitprobb)/numpaths 
 
 
-def testbarr():
+def testbarr(timeslices, barr,vol):
     
     T=1
-    s = 50
+    s = timeslices
     t =T/s
     numpaths= 50000
-    barr = 1.0
     fwd= 1.13
-    vol = 0.075
+    #vol = 0.075
     
     x = np.random.normal(0,1,size=numpaths*s)
     y = np.reshape(x,(s,numpaths))
@@ -65,9 +64,12 @@ def testbarr():
     
     
     maxz= np.min(z,axis=0)
+    modbarr=barr*math.exp(0.5826*vol*math.sqrt(t))
     prob=np.sum(np.ones(numpaths)[maxz > barr])/ numpaths
+    probmodbarr=np.sum(np.ones(numpaths)[maxz > modbarr])/ numpaths
+    print(barr,modbarr)
     probcorrected = np.sum(nohitprobb)/numpaths 
-    return (prob,probcorrected)
+    return (prob,probmodbarr,probcorrected)
 
 def main():
     fwd0 = 1.13
